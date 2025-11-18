@@ -1,5 +1,6 @@
 import os
 import requests
+import json
 import time
 from datetime import datetime
 from pydrive.auth import GoogleAuth
@@ -16,10 +17,17 @@ if not CREDS_JSON:
     print("エラー: GOOGLE_DRIVE_CREDENTIALS が環境変数に設定されていません。")
     exit(1)
 
-# JSON文字列をファイルに書き出す
+# JSON文字列を解析し、整形してから一時ファイルとして書き出す
 try:
+    # 環境変数から受け取ったJSON文字列を解析
+    creds_data = json.loads(CREDS_JSON) 
+    
+    # 整形したJSONを一時ファイルとして書き出す
     with open(TEMP_CREDS_FILE, "w", encoding="utf-8") as f:
-        f.write(CREDS_JSON)
+        json.dump(creds_data, f, indent=4) # indent=4で整形して書き込み
+except json.JSONDecodeError as e:
+    print(f"エラー: 認証情報のJSON解析に失敗しました。Secretsの値を確認してください。詳細: {e}")
+    exit(1)
 except Exception as e:
     print(f"エラー: 認証情報の書き出しに失敗しました: {e}")
     exit(1)
