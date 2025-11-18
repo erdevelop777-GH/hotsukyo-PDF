@@ -68,7 +68,6 @@ gauth.settings['client_config_file'] = TEMP_CREDS_FILE
 
 try:
     # Google Drive 認証 (Service Account)
-    gauth = GoogleAuth()
     gauth.ServiceAuth() # client_secrets.json を使って非対話的に認証
     drive = GoogleDrive(gauth)
     print("Google Drive 認証に成功しました。")
