@@ -1,97 +1,64 @@
 import os
-import requests
 import json
-import time
+import requests
 from datetime import datetime
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
+from pydrive2.auth import GoogleAuth
+from pydrive2.drive import GoogleDrive
 
-# ----------------------------------------------------
-# 1. 認証情報を環境変数から読み込み、一時ファイルに保存
-# ----------------------------------------------------
-# GitHub Secrets に登録した JSON 全体を取得
-CREDS_JSON = os.environ.get("GOOGLE_DRIVE_CREDENTIALS")
-TEMP_CREDS_FILE = "client_secrets.json" # pydriveがServiceAuth()で探すファイル名
-
-if not CREDS_JSON:
-    print("エラー: GOOGLE_DRIVE_CREDENTIALS が環境変数に設定されていません。")
+# ================================================
+# 1. Secrets からサービスアカウント情報を読み込む
+# ================================================
+creds_json = os.environ.get("GOOGLE_DRIVE_SERVICE_ACCOUNT")
+if not creds_json:
+    print("エラー: GOOGLE_DRIVE_SERVICE_ACCOUNT が設定されていません。")
     exit(1)
 
-# JSON文字列を解析し、整形してから一時ファイルとして書き出す
-try:
-    # 環境変数から受け取ったJSON文字列を解析
-    creds_data = json.loads(CREDS_JSON) 
-    
-    # 整形したJSONを一時ファイルとして書き出す
-    with open(TEMP_CREDS_FILE, "w", encoding="utf-8") as f:
-        json.dump(creds_data, f, indent=4) # indent=4で整形して書き込み
-except json.JSONDecodeError as e:
-    print(f"エラー: 認証情報のJSON解析に失敗しました。Secretsの値を確認してください。詳細: {e}")
-    exit(1)
-except Exception as e:
-    print(f"エラー: 認証情報の書き出しに失敗しました: {e}")
-    exit(1)
+with open("service_account.json", "w") as f:
+    f.write(creds_json)
 
-print(f"認証情報 ({TEMP_CREDS_FILE}) の書き出しに成功しました。")
 
-# ----------------------------------------------------
-# 2. PDF のダウンロード
-# ----------------------------------------------------
+# ================================================
+# 2. PDF ダウンロード
+# ================================================
 today = datetime.now().strftime("%Y-%m-%d")
 file_name = f"daily_{today}.pdf"
+
 url = "https://www.hotsukyo.or.jp/pdf/daily.pdf"
+r = requests.get(url)
+r.raise_for_status()
 
-try:
-    print(f"PDFダウンロード開始: {url}")
-    r = requests.get(url)
-    r.raise_for_status() # HTTPエラーがあれば例外を発生させる
+with open(file_name, "wb") as f:
+    f.write(r.content)
 
-    with open(file_name, "wb") as f:
-        f.write(r.content)
-    print(f"PDFダウンロード完了: {file_name}")
-
-except requests.exceptions.RequestException as e:
-    print(f"エラー: PDFのダウンロードに失敗しました: {e}")
-    exit(1)
+print(f"{file_name} をダウンロードしました。")
 
 
-# ----------------------------------------------------
-# 3. Google Drive 認証 (Service Account) とアップロード
-# ----------------------------------------------------
+# ================================================
+# 3. Google Drive 認証（ServiceAccount）
+# ================================================
 gauth = GoogleAuth()
+gauth.service_account_file = "service_account.json"
+gauth.ServiceAuth()
 
-# ★★★ ここから3行を追加/修正します ★★★
-# pydriveの設定を上書きし、認証情報ファイル(client_secrets.json)の場所を明示的に指定
-TEMP_CREDS_FILE = "client_secrets.json" # 変数を再定義（念のため）
-gauth.settings['client_config_file'] = TEMP_CREDS_FILE
-# ★★★ ここまで追加/修正 ★★★
+drive = GoogleDrive(gauth)
 
-try:
-    # Google Drive 認証 (Service Account)
-    gauth.ServiceAuth() # client_secrets.json を使って非対話的に認証
-    drive = GoogleDrive(gauth)
-    print("Google Drive 認証に成功しました。")
 
-    # Google Drive にアップロード
-    # 特定のフォルダにアップロードする場合は 'parents': [{'id': 'フォルダID'}] を追加
-    gfile = drive.CreateFile({'title': file_name}) 
-    gfile.SetContentFile(file_name)
-    gfile.Upload()
-    
-    print(f"✅ {file_name} を Google Drive に保存しました。")
+# ================================================
+# 4. Google Drive にアップロード
+# ================================================
+file_metadata = {
+    "title": file_name
+}
 
-except Exception as e:
-    print(f"エラー: Google Drive へのアップロードに失敗しました。権限と認証情報をご確認ください。詳細: {e}")
-    exit(1)
+gfile = drive.CreateFile(file_metadata)
+gfile.SetContentFile(file_name)
+gfile.Upload()
 
-finally:
-    # ----------------------------------------------------
-    # 4. 後処理 (一時ファイルとダウンロードしたPDFを削除)
-    # ----------------------------------------------------
-    # ダウンロードしたPDFを削除
-    if os.path.exists(file_name):
-        os.remove(file_name)
-    
-    # 認証情報を一時的に保存したファイルを削除
-    if os.path.exists(TEMP_CREDS_FILE):
-        os.remove(TEMP_CREDS_FILE)
+print(f"Google Drive にアップロード完了: {file_name}")
+
+
+# ================================================
+# 5. 一時ファイルを削除
+# ================================================
+os.remove(file_name)
+os.remove("service_account.json")
