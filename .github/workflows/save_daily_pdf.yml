@@ -1,0 +1,25 @@
+name: Save Daily PDF
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 毎日 11:00 JST に実行 (UTC 02:00)
+  workflow_dispatch:  # 手動実行も可能
+jobs:
+  save_pdf:
+    runs-on: ubuntu-latest
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v3
+
+      - name: Pythonセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: 必要パッケージインストール
+        run: |
+          pip install requests pydrive
+          
+      - name: スクリプト実行
+        run: python daily_pdf_save.py
+        env:
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
