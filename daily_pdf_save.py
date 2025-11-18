@@ -58,6 +58,14 @@ except requests.exceptions.RequestException as e:
 # ----------------------------------------------------
 # 3. Google Drive 認証 (Service Account) とアップロード
 # ----------------------------------------------------
+gauth = GoogleAuth()
+
+# ★★★ ここから3行を追加/修正します ★★★
+# pydriveの設定を上書きし、認証情報ファイル(client_secrets.json)の場所を明示的に指定
+TEMP_CREDS_FILE = "client_secrets.json" # 変数を再定義（念のため）
+gauth.settings['client_config_file'] = TEMP_CREDS_FILE
+# ★★★ ここまで追加/修正 ★★★
+
 try:
     # Google Drive 認証 (Service Account)
     gauth = GoogleAuth()
